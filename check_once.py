@@ -5,9 +5,11 @@ import requests
 NTFY_TOPIC = os.environ["NTFY_TOPIC"]
 SCRAPERAPI_KEY = os.environ["SCRAPERAPI_KEY"]
 
-BMS_URL = "https://in.bookmyshow.com/cinemas/kolkata/pvr-mani-square-mall-kolkata/buytickets/MSMA/20261217"
-TARGET_DATE = "20261217"
+DEFAULT_URL = "https://in.bookmyshow.com/cinemas/kolkata/pvr-mani-square-mall-kolkata/buytickets/MSMA/20261217"
+BMS_URL = (os.environ.get("TEST_URL") or "").strip() or DEFAULT_URL
+TARGET_DATE = (os.environ.get("TEST_DATE") or "").strip() or "20261217"
 
+print("Checking URL:", BMS_URL)
 resp = requests.get(
     "https://api.scraperapi.com/",
     params={
@@ -28,11 +30,10 @@ if idx == -1:
 brace_idx = resp.text.find("{", idx)
 state, _ = json.JSONDecoder().raw_decode(resp.text, brace_idx)
 
-venue_api = state.get("venueShowtimesFunctionalApi")
-if not venue_api:
-    raise RuntimeError("venueShowtimesFunctionalApi not found")
+# Theatre pages use venueShowtimesFunctionalApi; city movie pages use the main state
+data_to_check = state.get("venueShowtimesFunctionalApi") or state
+compact = json.dumps(data_to_check, separators=(",", ":")).lower()
 
-compact = json.dumps(venue_api, separators=(",", ":")).lower()
 has_date = (
     f'"showdatecode":"{TARGET_DATE}"' in compact
     or f'"showdatecode":{TARGET_DATE}' in compact
@@ -41,16 +42,22 @@ has_movie = "doomsday" in compact
 
 if has_date and has_movie:
     print("MATCH FOUND! Sending ntfy alert...")
+    is_test = BMS_URL != DEFAULT_URL
     requests.post(
         f"https://ntfy.sh/{NTFY_TOPIC}",
-        data="Avengers: Doomsday tickets are open at PVR Mani Square (MSMA) for Dec 17!",
+        data=(
+            f"[TEST] Doomsday is live for {TARGET_DATE}!"
+            if is_test
+            else f"Avengers: Doomsday tickets are open at PVR Mani Square (MSMA) for {TARGET_DATE}!"
+        ),
         headers={
-            "Title": "DOOMSDAY TICKETS OPEN",
+            "Title": "TEST: DOOMSDAY ALERT" if is_test else "DOOMSDAY TICKETS OPEN",
             "Priority": "urgent",
             "Tags": "ticket,rotating_light",
             "Click": BMS_URL,
         },
         timeout=15,
     ).raise_for_status()
+    print("ntfy notification sent!")
 else:
     print(f"Not open yet for {TARGET_DATE}.")
