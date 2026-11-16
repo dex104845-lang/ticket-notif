@@ -2,8 +2,17 @@ name: Watch Doomsday BMS
 
 on:
   schedule:
-    - cron: "*/15 * * * *"   # Checks every ~15 mins (fits comfortably in free credits)
-  workflow_dispatch:         # Lets you click "Run workflow" manually to test
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+    inputs:
+      test_url:
+        description: "Optional test BMS URL (leave blank for MSMA)"
+        required: false
+        default: ""
+      test_date:
+        description: "Optional test date YYYYMMDD (leave blank for 20261217)"
+        required: false
+        default: ""
 
 jobs:
   check:
@@ -18,4 +27,6 @@ jobs:
         env:
           SCRAPERAPI_KEY: ${{ secrets.SCRAPERAPI_KEY }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          TEST_URL: ${{ inputs.test_url }}
+          TEST_DATE: ${{ inputs.test_date }}
         run: python check_once.py
