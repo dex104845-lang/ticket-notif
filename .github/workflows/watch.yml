@@ -1,0 +1,21 @@
+name: Watch Doomsday BMS
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"   # Checks every ~15 mins (fits comfortably in free credits)
+  workflow_dispatch:         # Lets you click "Run workflow" manually to test
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests
+      - name: Check PVR Mani Square (MSMA)
+        env:
+          SCRAPERAPI_KEY: ${{ secrets.SCRAPERAPI_KEY }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: python check_once.py
